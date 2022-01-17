@@ -8,6 +8,10 @@ class DemoApplicationTests {
 
     @Test
     void contextLoads() {
+        QPSContext qpsContext = new QPSContext();
+        qpsContext.setExpectQps(3000);
+        qpsContext.setUrl("https://localhost:8080/index");
+        qpsUtil.QPSTest(qpsContext);
     }
 
 }
