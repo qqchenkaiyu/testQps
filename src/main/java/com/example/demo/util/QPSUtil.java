@@ -50,9 +50,6 @@ public class QPSUtil {
 
     ExecutorService showThread = Executors.newFixedThreadPool(1);
 
-    @Autowired
-    private BasicConfig config;
-
     //总响应时间
     private static AtomicLong totalResponseTime = new AtomicLong(0);
 
@@ -116,27 +113,27 @@ public class QPSUtil {
 
     private ClientHttpRequestFactory getClientHttpRequestFactory(int expectQps) {
 
-        SSLContext build = null;
-        try {
-            KeyStore keyStore = KeyStore.getInstance("JKS");
-            keyStore.load(FileUtil.getInputStream(
-                FileUtil.file("D:\\360安全浏览器下载\\testQps-master\\src\\main\\resources\\keystore.jks")),
-                "Changeme_123".toCharArray());
-            KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            kmf.init(keyStore, "Changeme_123".toCharArray());
-            TrustManager[] tm = {
-                new PubCerX509TrustManager(
-                    "D:\\360安全浏览器下载\\testQps-master\\src\\main\\resources\\Huawei_Enterprise_Network_Product_CA.cer")
-            };
-            build = SSLContext.getInstance("TLSv1.2", "SunJSSE");
-            build.init(kmf.getKeyManagers(), tm, SecureRandom.getInstanceStrong());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+//        SSLContext build = null;
+//        try {
+//            KeyStore keyStore = KeyStore.getInstance("JKS");
+//            keyStore.load(FileUtil.getInputStream(
+//                FileUtil.file("D:\\360安全浏览器下载\\testQps-master\\src\\main\\resources\\keystore.jks")),
+//                "Changeme_123".toCharArray());
+//            KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+//            kmf.init(keyStore, "Changeme_123".toCharArray());
+//            TrustManager[] tm = {
+//                new PubCerX509TrustManager(
+//                    "D:\\360安全浏览器下载\\testQps-master\\src\\main\\resources\\Huawei_Enterprise_Network_Product_CA.cer")
+//            };
+//            build = SSLContext.getInstance("TLSv1.2", "SunJSSE");
+//            build.init(kmf.getKeyManagers(), tm, SecureRandom.getInstanceStrong());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
         RequestConfig requestConfig = RequestConfig.custom()
-            .setSocketTimeout(config.getHttpTimeout())
-            .setConnectTimeout(config.getHttpTimeout())
-            .setConnectionRequestTimeout(config.getHttpTimeout())
+            .setSocketTimeout(5000)
+            .setConnectTimeout(5000)
+            .setConnectionRequestTimeout(5000)
             .build();
         SocketConfig socketConfig = SocketConfig.custom()
             .setTcpNoDelay(true)
@@ -152,7 +149,7 @@ public class QPSUtil {
             .setDefaultRequestConfig(requestConfig)
             .setDefaultSocketConfig(socketConfig)
             .setConnectionReuseStrategy(DefaultClientConnectionReuseStrategy.INSTANCE)
-            .setSSLContext(build)
+            //.setSSLContext(build)
             .build();
         return new HttpComponentsClientHttpRequestFactory(client);
     }
