@@ -11,4 +11,6 @@ public class QPSContext {
 
     int expectQps;
     String url;
+boolean infinitily = true;
+
 }

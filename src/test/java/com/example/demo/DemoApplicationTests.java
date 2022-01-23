@@ -14,7 +14,9 @@ class DemoApplicationTests {
     @Test
     void contextLoads() {
         QPSContext qpsContext = new QPSContext();
-        qpsContext.setExpectQps(30000);
+        qpsContext.setExpectQps(20000);
+      //  qpsContext.setInfinitily(false);
+
         qpsContext.setUrl("http://localhost:8080/index");
         qpsUtil.QPSTest(qpsContext);
     }

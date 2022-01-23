@@ -4,6 +4,7 @@
 
 package com.example.demo.util;
 
+import cn.hutool.crypto.symmetric.SymmetricAlgorithm;
 import com.alibaba.fastjson.support.spring.FastJsonHttpMessageConverter;
 
 import cn.hutool.core.io.FileUtil;
@@ -55,7 +56,8 @@ public class QPSUtil {
 
     //总请求数
     private static AtomicInteger totalRequest = new AtomicInteger(0);
-
+    //总成功请求数
+    private static AtomicInteger totalSuccessRequest = new AtomicInteger(0);
     //最近一次响应时间
     private static AtomicLong recentResponseTime = new AtomicLong(0);
 
@@ -66,44 +68,53 @@ public class QPSUtil {
         int expectQps = qpsContext.getExpectQps();
         RestTemplate restTemplate = createRestTemplateForTest(expectQps);
         String url = qpsContext.getUrl();
-
+        AtomicLong lastException =  new AtomicLong(System.currentTimeMillis());
         beginTime.set(System.currentTimeMillis());
-        for (int i = 0; i < expectQps; i++) {
-            scheduledThreadPool.scheduleAtFixedRate(() -> {
-                try {
-                    long start = System.currentTimeMillis();
-
-                    ResponseEntity<String> stringResponseEntity = restTemplate.postForEntity(url, null, String.class);
-                    //获取一个响应时间差，本次请求的响应时间
-                    if (stringResponseEntity.getStatusCode() == HttpStatus.OK) {
-                        long cost = System.currentTimeMillis() - start;
-                        totalResponseTime.addAndGet(cost);
-                        //每次自增
-                        totalRequest.incrementAndGet();
-                        recentResponseTime.set(cost);
-                        // } else {
-                        //     logger.error("请求失败!");
+        if(qpsContext.isInfinitily()){
+            for (int i = 0; i < expectQps; i++) {
+                scheduledThreadPool.scheduleAtFixedRate(() -> {
+                    try {
+                        long start = System.currentTimeMillis();
+                        ResponseEntity<String> stringResponseEntity = restTemplate.postForEntity(url, null, String.class);
+                        //获取一个响应时间差，本次请求的响应时间
+                        if (stringResponseEntity.getStatusCode() == HttpStatus.OK) {
+                            long cost = System.currentTimeMillis() - start;
+                            totalResponseTime.addAndGet(cost);
+                            //每次自增
+                            totalSuccessRequest.incrementAndGet();
+                            recentResponseTime.set(cost);
+                            // } else {
+                            //     logger.error("请求失败!");
+                        }
+                    } catch (Exception e) {
+                        if (System.currentTimeMillis() - lastException.get() > 2000) {
+                            lastException.set(System.currentTimeMillis());
+                            e.printStackTrace();
+                        }
+                        // e.printStackTrace();
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                    totalRequest.incrementAndGet();
 
-            }, 0, 1, TimeUnit.SECONDS);
+                }, 0, 1, TimeUnit.SECONDS);
+            }
+            showThread.submit(() -> {
+                while (true) {
+                    Thread.sleep(2000);
+                    long duration = System.currentTimeMillis() - beginTime.get();
+                    long totalResTime = totalResponseTime.get();
+                    if (duration != 0 && totalResTime != 0) {
+                        logger.info("QPS: {},平均响应时间:{}ms, 最近一次响应时间:{} ms , 成功率:{}", 1000 * totalSuccessRequest.get() / duration,
+                                ((float) totalResTime) / totalSuccessRequest.get(), recentResponseTime.get(), (float) totalSuccessRequest.get() / totalRequest.get());
+
+                    }
+                }
+            });
+        }else {
+            restTemplate.postForEntity(url, null, String.class);
         }
 
-        showThread.submit(() -> {
-            while (true) {
-                Thread.sleep(2000);
-                long duration = System.currentTimeMillis() - beginTime.get();
-                long totalResTime = totalResponseTime.get();
-                if (duration != 0 && totalResTime != 0) {
-                    logger.info("QPS: " + 1000 * totalRequest.get() / duration + ", " + "平均响应时间: "
-                        + ((float) totalResTime) / totalRequest.get() + "ms." + " 最近一次响应时间: " + recentResponseTime.get()
-                        + "ms");
 
-                }
-            }
-        });
+
         Scanner scanner = new Scanner(System.in);
         while (!scanner.next().equals("ok")) {
 
@@ -131,26 +142,26 @@ public class QPSUtil {
 //            e.printStackTrace();
 //        }
         RequestConfig requestConfig = RequestConfig.custom()
-            .setSocketTimeout(5000)
-            .setConnectTimeout(5000)
-            .setConnectionRequestTimeout(5000)
-            .build();
+                .setSocketTimeout(5000)
+                .setConnectTimeout(5000)
+                .setConnectionRequestTimeout(5000)
+                .build();
         SocketConfig socketConfig = SocketConfig.custom()
-            .setTcpNoDelay(true)
-            .setSoLinger(0)
-            .setSoKeepAlive(true)
-            .build();
+                .setTcpNoDelay(true)
+                .setSoLinger(0)
+                .setSoKeepAlive(true)
+                .build();
 
         CloseableHttpClient client = HttpClientBuilder.create()
-            .setMaxConnTotal(expectQps * 2)
-            .setMaxConnPerRoute(expectQps)
-            .setSSLHostnameVerifier(new NoopHostnameVerifier())
-            .setConnectionTimeToLive(10, TimeUnit.SECONDS)
-            .setDefaultRequestConfig(requestConfig)
-            .setDefaultSocketConfig(socketConfig)
-            .setConnectionReuseStrategy(DefaultClientConnectionReuseStrategy.INSTANCE)
-            //.setSSLContext(build)
-            .build();
+                .setMaxConnTotal(expectQps * 2)
+                .setMaxConnPerRoute(expectQps)
+                .setSSLHostnameVerifier(new NoopHostnameVerifier())
+                .setConnectionTimeToLive(10, TimeUnit.SECONDS)
+                .setDefaultRequestConfig(requestConfig)
+                .setDefaultSocketConfig(socketConfig)
+                .setConnectionReuseStrategy(DefaultClientConnectionReuseStrategy.INSTANCE)
+                //.setSSLContext(build)
+                .build();
         return new HttpComponentsClientHttpRequestFactory(client);
     }
 
@@ -169,7 +180,7 @@ public class QPSUtil {
             if (httpMessageConverter instanceof StringHttpMessageConverter) {
                 //当对象为String类型时生效
                 StringHttpMessageConverter stringHttpMessageConverter
-                    = (StringHttpMessageConverter) httpMessageConverter;
+                        = (StringHttpMessageConverter) httpMessageConverter;
                 stringHttpMessageConverter.setWriteAcceptCharset(false);
                 stringHttpMessageConverter.setDefaultCharset(Charset.forName(charset));
                 break;

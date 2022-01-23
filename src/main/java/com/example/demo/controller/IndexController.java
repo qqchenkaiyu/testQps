@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class IndexController {
     @RequestMapping("/index")
     public ResponseEntity helloWord() {
+
         return ResponseEntity.ok().build();
     }
 }
